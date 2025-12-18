@@ -371,9 +371,15 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
               ",height=" + std::to_string(out_h) +
               ",framerate=" + std::to_string(options_.fps) + "/1 ! ";
   pipeline += "nvv4l2h265enc ";
-  pipeline += "control-rate=" + std::to_string(options_.control_rate) + " ";
-  pipeline += "ratecontrol-enable=" + std::string(options_.ratecontrol_enable ? "true" : "false") + " ";
-  pipeline += "EnableTwopassCBR=" + std::string(options_.enable_twopass_cbr ? "true" : "false") + " ";
+  if (options_.control_rate != 1) {
+    pipeline += "control-rate=" + std::to_string(options_.control_rate) + " ";
+  }
+  if (!options_.ratecontrol_enable) {
+    pipeline += "ratecontrol-enable=false ";
+  }
+  if (options_.enable_twopass_cbr) {
+    pipeline += "EnableTwopassCBR=true ";
+  }
   pipeline += "bitrate=" + std::to_string(options_.bitrate) + " ";
   if (options_.peak_bitrate > 0) {
     pipeline += "peak-bitrate=" + std::to_string(options_.peak_bitrate) + " ";
