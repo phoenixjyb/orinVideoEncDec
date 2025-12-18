@@ -12,6 +12,8 @@ cr_h265_publisher:
       - "cam2"
       - "cam3"
       - "cam4"
+    # Input format uses GStreamer caps names (common: UYVY, YUY2, NV12).
+    # If v4l2-ctl reports Pixel Format 'YUYV', use input_format: "YUY2" (or "YUYV"; it will be normalized).
     input_format: "UYVY"
     input_width: 1920
     input_height: 1536

@@ -5,6 +5,7 @@
 
 #include <cctype>
 #include <cstring>
+#include <string>
 
 namespace cr_h265_publisher {
 namespace {
@@ -36,6 +37,41 @@ bool is_safe_caps_token(const std::string& token) {
     }
   }
   return true;
+}
+
+std::string to_upper_ascii(std::string s) {
+  for (char& ch : s) {
+    if (ch >= 'a' && ch <= 'z') {
+      ch = static_cast<char>(ch - 'a' + 'A');
+    }
+  }
+  return s;
+}
+
+std::string normalize_gst_format(const std::string& format_in) {
+  const std::string fmt = to_upper_ascii(format_in);
+  if (fmt == "YUYV") {
+    return "YUY2";
+  }
+  if (fmt == "YUY2") {
+    return "YUY2";
+  }
+  if (fmt == "UYVY") {
+    return "UYVY";
+  }
+  if (fmt == "VYUY") {
+    return "VYUY";
+  }
+  if (fmt == "YVYU") {
+    return "YVYU";
+  }
+  if (fmt == "NV16") {
+    return "NV16";
+  }
+  if (fmt == "NV12") {
+    return "NV12";
+  }
+  return format_in;
 }
 
 }  // namespace
@@ -268,7 +304,8 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
     return {};
   }
 
-  if (!is_safe_caps_token(options_.input_format)) {
+  const std::string input_format_gst = normalize_gst_format(options_.input_format);
+  if (!is_safe_caps_token(input_format_gst)) {
     if (error) {
       *error = "Invalid input_format: " + options_.input_format;
     }
@@ -299,7 +336,7 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
 
   std::string pipeline;
   pipeline += "v4l2src device=" + options_.device + " do-timestamp=true ! ";
-  pipeline += "video/x-raw,format=" + options_.input_format +
+  pipeline += "video/x-raw,format=" + input_format_gst +
               ",width=" + std::to_string(options_.input_width) +
               ",height=" + std::to_string(options_.input_height) +
               ",framerate=" + std::to_string(options_.fps) + "/1 ! ";

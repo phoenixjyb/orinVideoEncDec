@@ -13,6 +13,9 @@ KEEP_RAW="${KEEP_RAW:-0}"
 #   DEVICES="/dev/video0 /dev/video1 /dev/video2"
 DEVICES="${DEVICES:-}"
 
+# Optional: bash regex to filter by v4l2-ctl "Card type" (empty = no filter).
+CARD_TYPE_REGEX="${CARD_TYPE_REGEX:-}"
+
 if ! command -v v4l2-ctl >/dev/null 2>&1; then
   echo "ERROR: v4l2-ctl not found" >&2
   exit 1
@@ -72,14 +75,20 @@ for d in "${devices[@]}"; do
   card_type="$(v4l2-ctl -d "${d}" -D 2>/dev/null | awk -F': ' '/Card type/ {print $2; exit}')"
   bus_info="$(v4l2-ctl -d "${d}" -D 2>/dev/null | awk -F': ' '/Bus info/ {print $2; exit}')"
 
-  if [[ "${card_type}" != *"sgx-yuv-gmsl2"* ]]; then
-    echo "skip: card_type=${card_type:-unknown} bus_info=${bus_info:-unknown}"
+  if [[ -z "${card_type}" ]]; then
+    echo "skip: card_type=unknown bus_info=${bus_info:-unknown}"
     echo ""
     continue
   fi
 
   echo "card_type=${card_type}"
   echo "bus_info=${bus_info}"
+
+  if [[ -n "${CARD_TYPE_REGEX}" && ! "${card_type}" =~ ${CARD_TYPE_REGEX} ]]; then
+    echo "skip: card_type does not match CARD_TYPE_REGEX=${CARD_TYPE_REGEX}"
+    echo ""
+    continue
+  fi
 
   fmt="$(v4l2-ctl -d "${d}" --get-fmt-video 2>/dev/null || true)"
   if [[ -z "${fmt}" ]]; then

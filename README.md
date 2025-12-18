@@ -24,6 +24,7 @@ This repo contains a ROS 2 Humble package for Jetson Orin that:
 - Jetson GStreamer plugins:
   - `gst-inspect-1.0 nvv4l2h265enc`
   - `gst-inspect-1.0 nvvidconv`
+  - If missing: `sudo apt-get install -y nvidia-l4t-gstreamer`
 
 ### Get repo onto Orin
 
@@ -71,6 +72,12 @@ If you use the existing camera init script (recommended), this will init cameras
 ```bash
 # Example if you have cr_camera_driver at /home/nvidia/yanbo/cr_camera_driver (adjust if yours is elsewhere)
 bash /home/nvidia/yanbo/cr_camera_driver/scripts/start_cameras.sh --config-only --skip-build --high-performance
+```
+
+If you don’t know where it is on a new device:
+
+```bash
+find /home/nvidia -maxdepth 6 -name start_cameras.sh
 ```
 
 It may prompt for sudo password (same as SSH password in your setup).
@@ -127,6 +134,18 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
   --params-file /home/nvidia/yanbo/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
 ```
 
+Multiple cameras (recommended: 1 process per camera):
+
+Some camera stacks (e.g. `v4l2-ctl -D` shows `Card type: vi-output, ...`) are unstable when you open multiple `/dev/video*` in ONE process (can show `not-negotiated` / Argus errors). In that case, use the launch file to run one node per camera:
+
+```bash
+ros2 launch cr_h265_publisher multi_cameras.launch.py \
+  devices:=/dev/video2,/dev/video3,/dev/video4 \
+  topics:=/cr/camera/h265/cam2,/cr/camera/h265/cam3,/cr/camera/h265/cam4 \
+  frame_ids:=cam2,cam3,cam4 \
+  input_format:=UYVY
+```
+
 ### Quick end-to-end validation (record + decode)
 
 1) Start publisher in one terminal.
@@ -169,6 +188,8 @@ Notes:
 
 - `proc_cpu(%)` is the publisher process CPU usage as “% of one core” (can exceed 100%).
 - `sys_cpu(%)` is total system CPU usage as a % of all CPU cores combined (0–100).
+- If you see camera failures at higher camera counts, try `MODE=multi_process` (one publisher process per camera).
+- If `v4l2-ctl --get-fmt-video` shows `Pixel Format: 'YUYV'`, use `INPUT_FORMAT=YUY2` (or `YUYV`; it will be normalized).
 
 Example result on the current Orin (requested `1920x1536@30` in, `960x768` out, `4Mbps`/cam, `DURATION_S=20`, devices `/dev/video0..4`):
 
@@ -181,13 +202,22 @@ cams   proc_cpu(%)  sys_cpu(%)
 5      115.97       12.26
 ```
 
-Example result using only the “fast” cameras (`DEV_INDICES='2 3 4'`, i.e. `/dev/video2..4`):
+Example result using only the “fast” cameras (`DEV_INDICES='2 3 4'`, i.e. `/dev/video2..4`), Orin @ `192.168.100.150`:
 
 ```
 cams   proc_cpu(%)  sys_cpu(%)
-1      38.24        5.55
-2      74.78        8.57
-3      111.47       11.81
+1      38.14        5.59
+2      74.93        8.72
+3      111.67       11.83
+```
+
+Example result on Orin @ `192.168.100.130` using `MODE=multi_process` and `INPUT_FORMAT=YUY2` (sum of per-camera processes):
+
+```
+cams   proc_cpu(%)  sys_cpu(%)
+1      46.87        15.91
+2      88.28        22.60
+3      131.58       28.73
 ```
 
 If you see a “big jump” when adding a specific camera index, it usually means that camera is actually running at a much higher FPS/throughput than the others (e.g. on this setup `/dev/video0` is ~1–2 fps while `/dev/video2` is near realtime).
@@ -230,6 +260,7 @@ If you see a “big jump” when adding a specific camera index, it usually mean
 - Jetson GStreamer 插件可用：
   - `gst-inspect-1.0 nvv4l2h265enc`
   - `gst-inspect-1.0 nvvidconv`
+  - 如果缺失：`sudo apt-get install -y nvidia-l4t-gstreamer`
 
 ### 将仓库放到 Orin 上
 
@@ -277,6 +308,12 @@ source install/setup.bash
 ```bash
 # 示例：如果你的 cr_camera_driver 在 /home/nvidia/yanbo/cr_camera_driver（如果路径不同请自行调整）
 bash /home/nvidia/yanbo/cr_camera_driver/scripts/start_cameras.sh --config-only --skip-build --high-performance
+```
+
+如果你在新设备上不清楚脚本路径：
+
+```bash
+find /home/nvidia -maxdepth 6 -name start_cameras.sh
 ```
 
 该脚本可能会提示输入 sudo 密码（你的环境里与 SSH 密码一致）。
@@ -333,6 +370,18 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
   --params-file /home/nvidia/yanbo/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
 ```
 
+多路相机（推荐：每路 1 个进程）：
+
+部分相机栈（例如 `v4l2-ctl -D` 显示 `Card type: vi-output, ...`）在同一进程内打开多个 `/dev/video*` 可能不稳定（会出现 `not-negotiated` / Argus 报错）。此时建议用 launch 文件为每路相机启动一个发布进程：
+
+```bash
+ros2 launch cr_h265_publisher multi_cameras.launch.py \
+  devices:=/dev/video2,/dev/video3,/dev/video4 \
+  topics:=/cr/camera/h265/cam2,/cr/camera/h265/cam3,/cr/camera/h265/cam4 \
+  frame_ids:=cam2,cam3,cam4 \
+  input_format:=UYVY
+```
+
 ### 端到端验证（录制 + 解码）
 
 1）一个终端启动发布节点。
@@ -375,6 +424,8 @@ bash /tmp/bench_orin_cpu.sh
 
 - `proc_cpu(%)`：发布进程的 CPU 占用（按“单核百分比”计算，因此可能 >100%）。
 - `sys_cpu(%)`：整机总 CPU 占用（按“所有 CPU 核总和”的百分比计算，范围 0–100）。
+- 如果相机数量增加后出现失败，可以尝试 `MODE=multi_process`（每路相机一个发布进程）。
+- 如果 `v4l2-ctl --get-fmt-video` 显示 `Pixel Format: 'YUYV'`，请使用 `INPUT_FORMAT=YUY2`（或 `YUYV`，会自动归一化为 `YUY2`）。
 
 当前 Orin 上的一组示例结果（输入请求 `1920x1536@30`，输出 `960x768`，每路 `4Mbps`，`DURATION_S=20`，设备 `/dev/video0..4`）：
 
@@ -387,13 +438,22 @@ cams   proc_cpu(%)  sys_cpu(%)
 5      115.97       12.26
 ```
 
-仅使用“高吞吐量”的三路相机（`DEV_INDICES='2 3 4'`，即 `/dev/video2..4`）的一组示例结果：
+仅使用“高吞吐量”的三路相机（`DEV_INDICES='2 3 4'`，即 `/dev/video2..4`），Orin @ `192.168.100.150` 的一组示例结果：
 
 ```
 cams   proc_cpu(%)  sys_cpu(%)
-1      38.24        5.55
-2      74.78        8.57
-3      111.47       11.81
+1      38.14        5.59
+2      74.93        8.72
+3      111.67       11.83
+```
+
+Orin @ `192.168.100.130` 使用 `MODE=multi_process` 且 `INPUT_FORMAT=YUY2` 的示例结果（按每路进程求和）：
+
+```
+cams   proc_cpu(%)  sys_cpu(%)
+1      46.87        15.91
+2      88.28        22.60
+3      131.58       28.73
 ```
 
 如果你发现“加某一路之后 CPU 突然跳升”，通常意味着该相机实际帧率/吞吐量明显更高（例如当前环境里 `/dev/video0` 只有 ~1–2 fps，而 `/dev/video2` 接近实时）。
