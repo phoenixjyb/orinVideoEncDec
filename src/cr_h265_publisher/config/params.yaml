@@ -1,0 +1,25 @@
+cr_h265_publisher:
+  ros__parameters:
+    devices:
+      - "/dev/video0"
+      - "/dev/video1"
+    topics:
+      - "/cr/camera/h265/front_right"
+      - "/cr/camera/h265/front_left"
+    frame_ids:
+      - "front_right"
+      - "front_left"
+    input_width: 1920
+    input_height: 1536
+    output_width: 960
+    output_height: 768
+    fps: 30
+    bitrate: 8000000
+    iframeinterval: 30
+    idrinterval: 30
+    insert_sps_pps: true
+    insert_aud: false
+    maxperf_enable: true
+    preset_level: 1
+    profile: 0
+
