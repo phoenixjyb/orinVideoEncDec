@@ -27,17 +27,19 @@ This repo contains a ROS 2 Humble package for Jetson Orin that:
 
 ### Get repo onto Orin
 
-Option A (recommended): clone on the Orin:
+Option A (recommended): clone on the Orin (this README uses `/home/nvidia/yanbo` on your Orin):
 
 ```bash
-cd /home/nvidia/wkp
+mkdir -p /home/nvidia/yanbo
+cd /home/nvidia/yanbo
 git clone https://github.com/phoenixjyb/orinVideoEncDec.git
 ```
 
 Option B: copy only the ROS package from your dev machine:
 
 ```bash
-scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/wkp/
+ssh cr@192.168.100.150 'mkdir -p /home/nvidia/yanbo'
+scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/yanbo/
 ```
 
 ### Build on Orin
@@ -46,7 +48,7 @@ Option A (repo as a colcon workspace):
 
 ```bash
 source /opt/ros/humble/setup.bash
-cd /home/nvidia/wkp/orinVideoEncDec
+cd /home/nvidia/yanbo/orinVideoEncDec
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
@@ -55,19 +57,20 @@ Option B (package copied into an existing workspace folder):
 
 ```bash
 source /opt/ros/humble/setup.bash
-cd /home/nvidia/wkp
+cd /home/nvidia/yanbo
 colcon build --base-paths cr_h265_publisher --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
 
-Note: the rest of this README assumes you used Option A and your workspace is `/home/nvidia/wkp/orinVideoEncDec`. If you used Option B, adjust the `source .../install/setup.bash` and `--params-file ...` paths accordingly.
+Note: the rest of this README assumes you used Option A and your workspace is `/home/nvidia/yanbo/orinVideoEncDec`. If you used Option B or a different path, adjust the `source .../install/setup.bash` and `--params-file ...` paths accordingly.
 
 ### Camera init (GMSL)
 
 If you use the existing camera init script (recommended), this will init cameras but NOT start `cr_camera_node`:
 
 ```bash
-bash /home/nvidia/wkp/cr_camera_driver/scripts/start_cameras.sh --config-only --skip-build --high-performance
+# Example if you have cr_camera_driver at /home/nvidia/yanbo/cr_camera_driver (adjust if yours is elsewhere)
+bash /home/nvidia/yanbo/cr_camera_driver/scripts/start_cameras.sh --config-only --skip-build --high-performance
 ```
 
 It may prompt for sudo password (same as SSH password in your setup).
@@ -106,7 +109,7 @@ Single camera example:
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
+source /home/nvidia/yanbo/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
   -p devices:=[/dev/video2] \
@@ -121,7 +124,7 @@ Use the provided params file:
 
 ```bash
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
-  --params-file /home/nvidia/wkp/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
+  --params-file /home/nvidia/yanbo/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
 ```
 
 ### Quick end-to-end validation (record + decode)
@@ -132,7 +135,7 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
+source /home/nvidia/yanbo/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_dump_node --ros-args \
   -p topic:=/cr/camera/h265/cam2 \
@@ -158,7 +161,7 @@ Run on the Orin:
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
+source /home/nvidia/yanbo/orinVideoEncDec/install/setup.bash
 bash /tmp/bench_orin_cpu.sh
 ```
 
@@ -233,14 +236,16 @@ If you see a “big jump” when adding a specific camera index, it usually mean
 方式 A（推荐）：直接在 Orin 上 clone：
 
 ```bash
-cd /home/nvidia/wkp
+mkdir -p /home/nvidia/yanbo
+cd /home/nvidia/yanbo
 git clone https://github.com/phoenixjyb/orinVideoEncDec.git
 ```
 
 方式 B：从开发机只拷贝 ROS 包：
 
 ```bash
-scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/wkp/
+ssh cr@192.168.100.150 'mkdir -p /home/nvidia/yanbo'
+scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/yanbo/
 ```
 
 ### Orin 端编译
@@ -249,7 +254,7 @@ scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/wkp/
 
 ```bash
 source /opt/ros/humble/setup.bash
-cd /home/nvidia/wkp/orinVideoEncDec
+cd /home/nvidia/yanbo/orinVideoEncDec
 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
@@ -258,19 +263,20 @@ source install/setup.bash
 
 ```bash
 source /opt/ros/humble/setup.bash
-cd /home/nvidia/wkp
+cd /home/nvidia/yanbo
 colcon build --base-paths cr_h265_publisher --cmake-args -DCMAKE_BUILD_TYPE=Release
 source install/setup.bash
 ```
 
-说明：本 README 后续命令默认你使用了方式 A（workspace 在 `/home/nvidia/wkp/orinVideoEncDec`）。如果你使用了方式 B，请相应修改 `source .../install/setup.bash` 和 `--params-file ...` 的路径。
+说明：本 README 后续命令默认你使用了方式 A（workspace 在 `/home/nvidia/yanbo/orinVideoEncDec`）。如果你使用了方式 B 或放在其它路径，请相应修改 `source .../install/setup.bash` 和 `--params-file ...` 的路径。
 
 ### 相机初始化（GMSL）
 
 推荐使用现有脚本做相机初始化（只初始化，不启动 `cr_camera_node`）：
 
 ```bash
-bash /home/nvidia/wkp/cr_camera_driver/scripts/start_cameras.sh --config-only --skip-build --high-performance
+# 示例：如果你的 cr_camera_driver 在 /home/nvidia/yanbo/cr_camera_driver（如果路径不同请自行调整）
+bash /home/nvidia/yanbo/cr_camera_driver/scripts/start_cameras.sh --config-only --skip-build --high-performance
 ```
 
 该脚本可能会提示输入 sudo 密码（你的环境里与 SSH 密码一致）。
@@ -309,7 +315,7 @@ bash scripts/check_orin_cameras.sh
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
+source /home/nvidia/yanbo/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
   -p devices:=[/dev/video2] \
@@ -324,7 +330,7 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
 
 ```bash
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
-  --params-file /home/nvidia/wkp/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
+  --params-file /home/nvidia/yanbo/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
 ```
 
 ### 端到端验证（录制 + 解码）
@@ -335,7 +341,7 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
+source /home/nvidia/yanbo/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_dump_node --ros-args \
   -p topic:=/cr/camera/h265/cam2 \
@@ -361,7 +367,7 @@ scp scripts/bench_orin_cpu.sh cr@192.168.100.150:/tmp/bench_orin_cpu.sh
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
+source /home/nvidia/yanbo/orinVideoEncDec/install/setup.bash
 bash /tmp/bench_orin_cpu.sh
 ```
 
