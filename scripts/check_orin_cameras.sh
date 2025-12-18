@@ -111,20 +111,37 @@ for d in "${devices[@]}"; do
   echo "fmt=${width}x${height} pixfmt=${pixfmt:-unknown} gst_format=${gst_format:-unknown}"
 
   echo "-- gst sanity (${NUM_BUFFERS} buffers) --"
+  set +e
   timeout "${TIMEOUT_S}s" \
     gst-launch-1.0 -q v4l2src device="${d}" num-buffers="${NUM_BUFFERS}" \
       ! "video/x-raw,format=${gst_format},width=${width},height=${height},framerate=${FPS}/1" \
       ! fakesink sync=false
+  sanity_status="$?"
+  set -e
+  if (( sanity_status != 0 )); then
+    echo "FAIL (exit=${sanity_status})"
+    echo ""
+    continue
+  fi
   echo "OK"
 
   if (( CONTENT_CHECK > 0 )); then
     if command -v python3 >/dev/null 2>&1; then
       tmp_raw="/tmp/cr_cam_$(basename "${d}").raw"
       echo "-- content check (1 buffer -> ${tmp_raw}) --"
+      set +e
       timeout "${TIMEOUT_S}s" \
         gst-launch-1.0 -q v4l2src device="${d}" num-buffers=1 \
           ! "video/x-raw,format=${gst_format},width=${width},height=${height},framerate=${FPS}/1" \
           ! filesink location="${tmp_raw}"
+      content_status="$?"
+      set -e
+      if (( content_status != 0 )); then
+        echo "content_check: FAIL (exit=${content_status})"
+        rm -f "${tmp_raw}" || true
+        echo ""
+        continue
+      fi
 
       python3 - "${tmp_raw}" "${SAMPLE_BYTES}" <<'PY'
 import math
@@ -164,10 +181,18 @@ PY
 
   if (( MEASURE_BUFFERS > 0 )); then
     echo "-- gst timing (${MEASURE_BUFFERS} buffers) --"
-    { time timeout "${TIMEOUT_S}s" \
+    set +e
+    timing_line="$({ time timeout "${TIMEOUT_S}s" \
       gst-launch-1.0 -q v4l2src device="${d}" num-buffers="${MEASURE_BUFFERS}" \
         ! "video/x-raw,format=${gst_format},width=${width},height=${height},framerate=${FPS}/1" \
-        ! fakesink sync=false; } 2>&1 | tail -n 1
+        ! fakesink sync=false; } 2>&1 | tail -n 1)"
+    timing_status="$?"
+    set -e
+    if (( timing_status != 0 )); then
+      echo "timing: FAIL (exit=${timing_status})"
+    else
+      echo "${timing_line}"
+    fi
   fi
 
   echo ""
