@@ -20,7 +20,18 @@ cr_h265_publisher:
     output_width: 960
     output_height: 768
     fps: 30
+    # Rate control:
+    #   control_rate: 0=VBR, 1=CBR
+    control_rate: 1
+    ratecontrol_enable: true
+    enable_twopass_cbr: false
     bitrate: 8000000
+    peak_bitrate: 0   # 0 => encoder default (typically ~1.2*bitrate for VBR)
+    vbv_size: 0       # 0 => encoder default
+    # GOP / frame structure:
+    #   num_b_frames: set 0 for IPPP..., or 1/2 for IPB... (may be platform/plugin dependent)
+    num_b_frames: 0
+    num_ref_frames: 1
     iframeinterval: 30
     idrinterval: 30
     insert_sps_pps: true

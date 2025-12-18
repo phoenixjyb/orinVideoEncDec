@@ -46,7 +46,14 @@ public:
     this->declare_parameter<int>("output_width", 1920);
     this->declare_parameter<int>("output_height", 1536);
     this->declare_parameter<int>("fps", 30);
+    this->declare_parameter<int>("control_rate", 1);  // 0=VBR, 1=CBR
+    this->declare_parameter<bool>("ratecontrol_enable", true);
+    this->declare_parameter<bool>("enable_twopass_cbr", false);
     this->declare_parameter<int>("bitrate", 8'000'000);
+    this->declare_parameter<int>("peak_bitrate", 0);  // 0 => encoder default
+    this->declare_parameter<int>("vbv_size", 0);      // 0 => encoder default
+    this->declare_parameter<int>("num_b_frames", 0);
+    this->declare_parameter<int>("num_ref_frames", 1);
     this->declare_parameter<int>("iframeinterval", 30);
     this->declare_parameter<int>("idrinterval", 30);
     this->declare_parameter<bool>("insert_sps_pps", true);
@@ -88,6 +95,36 @@ public:
     const auto out_h = this->get_parameter("output_height").as_int();
     const auto fps = this->get_parameter("fps").as_int();
 
+    const auto control_rate = this->get_parameter("control_rate").as_int();
+    if (control_rate != 0 && control_rate != 1) {
+      throw std::runtime_error("Parameter 'control_rate' must be 0 (VBR) or 1 (CBR)");
+    }
+
+    const auto num_b_frames = this->get_parameter("num_b_frames").as_int();
+    if (num_b_frames < 0 || num_b_frames > 2) {
+      throw std::runtime_error("Parameter 'num_b_frames' must be in range 0..2");
+    }
+
+    const auto num_ref_frames = this->get_parameter("num_ref_frames").as_int();
+    if (num_ref_frames < 0 || num_ref_frames > 8) {
+      throw std::runtime_error("Parameter 'num_ref_frames' must be in range 0..8");
+    }
+
+    const auto bitrate = this->get_parameter("bitrate").as_int();
+    if (bitrate < 0) {
+      throw std::runtime_error("Parameter 'bitrate' must be >= 0");
+    }
+
+    const auto peak_bitrate = this->get_parameter("peak_bitrate").as_int();
+    if (peak_bitrate < 0) {
+      throw std::runtime_error("Parameter 'peak_bitrate' must be >= 0");
+    }
+
+    const auto vbv_size = this->get_parameter("vbv_size").as_int();
+    if (vbv_size < 0) {
+      throw std::runtime_error("Parameter 'vbv_size' must be >= 0");
+    }
+
     GstH265EncoderOptions opts;
     opts.input_format = input_format;
     opts.input_width = static_cast<int>(in_w);
@@ -95,7 +132,14 @@ public:
     opts.output_width = static_cast<int>(out_w);
     opts.output_height = static_cast<int>(out_h);
     opts.fps = static_cast<int>(fps);
-    opts.bitrate = static_cast<uint32_t>(this->get_parameter("bitrate").as_int());
+    opts.control_rate = static_cast<int>(control_rate);
+    opts.ratecontrol_enable = this->get_parameter("ratecontrol_enable").as_bool();
+    opts.enable_twopass_cbr = this->get_parameter("enable_twopass_cbr").as_bool();
+    opts.bitrate = static_cast<uint32_t>(bitrate);
+    opts.peak_bitrate = static_cast<uint32_t>(peak_bitrate);
+    opts.vbv_size = static_cast<uint32_t>(vbv_size);
+    opts.num_b_frames = static_cast<int>(num_b_frames);
+    opts.num_ref_frames = static_cast<int>(num_ref_frames);
     opts.iframeinterval = static_cast<uint32_t>(this->get_parameter("iframeinterval").as_int());
     opts.idrinterval = static_cast<uint32_t>(this->get_parameter("idrinterval").as_int());
     opts.insert_sps_pps = this->get_parameter("insert_sps_pps").as_bool();

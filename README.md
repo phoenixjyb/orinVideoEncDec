@@ -146,6 +146,28 @@ ros2 launch cr_h265_publisher multi_cameras.launch.py \
   input_format:=UYVY
 ```
 
+### Encoder configuration (GOP / B-frames / rate control)
+
+Check what your Orin supports (properties are provided by `nvv4l2h265enc`):
+
+```bash
+gst-inspect-1.0 nvv4l2h265enc | sed -n '/^Element Properties:/,/^Pad Templates:/p'
+```
+
+This project exposes the most common knobs as ROS parameters:
+
+- GOP: `iframeinterval`, `idrinterval`
+- Frame structure: `num_b_frames` (maps to `nvv4l2h265enc num-B-Frames`), `num_ref_frames`
+- Rate control: `control_rate` (0=VBR, 1=CBR), `ratecontrol_enable`, `enable_twopass_cbr`, `peak_bitrate`, `vbv_size`
+
+Examples:
+
+- All-I (low latency, higher bitrate): `iframeinterval=1`, `idrinterval=1`, `num_b_frames=0`
+- IP only (default): `num_b_frames=0`
+- IPB (higher compression, adds latency): `num_b_frames=1` or `2`
+
+Note: `gst-inspect` still prints “Supported only on Xavier” for `num-B-Frames`, but we verified the pipeline runs on Orin; treat it as optional and test on your exact JetPack/L4T build.
+
 ### Quick end-to-end validation (record + decode)
 
 1) Start publisher in one terminal.
@@ -381,6 +403,28 @@ ros2 launch cr_h265_publisher multi_cameras.launch.py \
   frame_ids:=cam2,cam3,cam4 \
   input_format:=UYVY
 ```
+
+### 编码配置（GOP / B 帧 / 码率控制）
+
+先查看你的 Orin 支持哪些编码参数（这些参数来自 `nvv4l2h265enc`）：
+
+```bash
+gst-inspect-1.0 nvv4l2h265enc | sed -n '/^Element Properties:/,/^Pad Templates:/p'
+```
+
+本项目将常用参数做成了 ROS 参数：
+
+- GOP：`iframeinterval`、`idrinterval`
+- 帧结构：`num_b_frames`（对应 `nvv4l2h265enc num-B-Frames`）、`num_ref_frames`
+- 码率控制：`control_rate`（0=VBR，1=CBR）、`ratecontrol_enable`、`enable_twopass_cbr`、`peak_bitrate`、`vbv_size`
+
+常见用法示例：
+
+- 全 I 帧（低延迟但码率更高）：`iframeinterval=1`、`idrinterval=1`、`num_b_frames=0`
+- 仅 IP（默认）：`num_b_frames=0`
+- IPB（压缩率更高但会增加延迟）：`num_b_frames=1` 或 `2`
+
+注意：`gst-inspect` 对 `num-B-Frames` 仍打印“仅 Xavier 支持”，但我们已在 Orin 上验证 pipeline 可运行；是否真正启用 B 帧请以你当前 JetPack/L4T 版本实测为准。
 
 ### 端到端验证（录制 + 解码）
 

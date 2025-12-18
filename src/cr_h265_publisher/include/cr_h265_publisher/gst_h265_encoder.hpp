@@ -32,7 +32,19 @@ struct GstH265EncoderOptions {
   int output_height = 1536;
   int fps = 30;
 
+  // nvv4l2h265enc properties (see: gst-inspect-1.0 nvv4l2h265enc)
+  // control_rate: 0=VBR, 1=CBR
+  int control_rate = 1;
+  bool ratecontrol_enable = true;
+  bool enable_twopass_cbr = false;
+
   uint32_t bitrate = 8'000'000;
+  uint32_t peak_bitrate = 0;  // 0 => encoder default
+  uint32_t vbv_size = 0;      // 0 => encoder default
+
+  int num_b_frames = 0;    // 0..2 (may be platform-dependent)
+  int num_ref_frames = 1;  // 0..8
+
   uint32_t iframeinterval = 30;
   uint32_t idrinterval = 30;
   bool insert_sps_pps = true;

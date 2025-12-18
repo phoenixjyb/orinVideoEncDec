@@ -19,7 +19,14 @@ class _CommonParams:
     output_width: int
     output_height: int
     fps: int
+    control_rate: int
+    ratecontrol_enable: bool
+    enable_twopass_cbr: bool
     bitrate: int
+    peak_bitrate: int
+    vbv_size: int
+    num_b_frames: int
+    num_ref_frames: int
     iframeinterval: int
     idrinterval: int
     insert_sps_pps: bool
@@ -66,7 +73,14 @@ def _generate_nodes(context, *args, **kwargs):
         output_width=int(LaunchConfiguration("output_width").perform(context)),
         output_height=int(LaunchConfiguration("output_height").perform(context)),
         fps=int(LaunchConfiguration("fps").perform(context)),
+        control_rate=int(LaunchConfiguration("control_rate").perform(context)),
+        ratecontrol_enable=_as_bool(LaunchConfiguration("ratecontrol_enable").perform(context)),
+        enable_twopass_cbr=_as_bool(LaunchConfiguration("enable_twopass_cbr").perform(context)),
         bitrate=int(LaunchConfiguration("bitrate").perform(context)),
+        peak_bitrate=int(LaunchConfiguration("peak_bitrate").perform(context)),
+        vbv_size=int(LaunchConfiguration("vbv_size").perform(context)),
+        num_b_frames=int(LaunchConfiguration("num_b_frames").perform(context)),
+        num_ref_frames=int(LaunchConfiguration("num_ref_frames").perform(context)),
         iframeinterval=int(LaunchConfiguration("iframeinterval").perform(context)),
         idrinterval=int(LaunchConfiguration("idrinterval").perform(context)),
         insert_sps_pps=_as_bool(LaunchConfiguration("insert_sps_pps").perform(context)),
@@ -92,7 +106,14 @@ def _generate_nodes(context, *args, **kwargs):
             "output_width": common.output_width,
             "output_height": common.output_height,
             "fps": common.fps,
+            "control_rate": common.control_rate,
+            "ratecontrol_enable": common.ratecontrol_enable,
+            "enable_twopass_cbr": common.enable_twopass_cbr,
             "bitrate": common.bitrate,
+            "peak_bitrate": common.peak_bitrate,
+            "vbv_size": common.vbv_size,
+            "num_b_frames": common.num_b_frames,
+            "num_ref_frames": common.num_ref_frames,
             "iframeinterval": common.iframeinterval,
             "idrinterval": common.idrinterval,
             "insert_sps_pps": common.insert_sps_pps,
@@ -149,7 +170,14 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("output_width", default_value="960"),
             DeclareLaunchArgument("output_height", default_value="768"),
             DeclareLaunchArgument("fps", default_value="30"),
+            DeclareLaunchArgument("control_rate", default_value="1"),
+            DeclareLaunchArgument("ratecontrol_enable", default_value="true"),
+            DeclareLaunchArgument("enable_twopass_cbr", default_value="false"),
             DeclareLaunchArgument("bitrate", default_value="8000000"),
+            DeclareLaunchArgument("peak_bitrate", default_value="0"),
+            DeclareLaunchArgument("vbv_size", default_value="0"),
+            DeclareLaunchArgument("num_b_frames", default_value="0"),
+            DeclareLaunchArgument("num_ref_frames", default_value="1"),
             DeclareLaunchArgument("iframeinterval", default_value="30"),
             DeclareLaunchArgument("idrinterval", default_value="30"),
             DeclareLaunchArgument("insert_sps_pps", default_value="true"),
@@ -170,4 +198,3 @@ def generate_launch_description() -> LaunchDescription:
             OpaqueFunction(function=_generate_nodes),
         ]
     )
-

@@ -312,6 +312,32 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
     return {};
   }
 
+  if (options_.control_rate != 0 && options_.control_rate != 1) {
+    if (error) {
+      *error = "Invalid control_rate (expected 0=VBR or 1=CBR): " + std::to_string(options_.control_rate);
+    }
+    return {};
+  }
+  if (options_.num_b_frames < 0 || options_.num_b_frames > 2) {
+    if (error) {
+      *error = "Invalid num_b_frames (expected 0..2): " + std::to_string(options_.num_b_frames);
+    }
+    return {};
+  }
+  if (options_.num_ref_frames < 0 || options_.num_ref_frames > 8) {
+    if (error) {
+      *error = "Invalid num_ref_frames (expected 0..8): " + std::to_string(options_.num_ref_frames);
+    }
+    return {};
+  }
+  if (options_.peak_bitrate > 0 && options_.peak_bitrate < options_.bitrate) {
+    if (error) {
+      *error = "Invalid peak_bitrate (must be >= bitrate when set): peak_bitrate=" +
+               std::to_string(options_.peak_bitrate) + " bitrate=" + std::to_string(options_.bitrate);
+    }
+    return {};
+  }
+
   if (!has_element_factory("v4l2src")) {
     if (error) {
       *error = "Missing GStreamer element: v4l2src";
@@ -345,7 +371,22 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
               ",height=" + std::to_string(out_h) +
               ",framerate=" + std::to_string(options_.fps) + "/1 ! ";
   pipeline += "nvv4l2h265enc ";
+  pipeline += "control-rate=" + std::to_string(options_.control_rate) + " ";
+  pipeline += "ratecontrol-enable=" + std::string(options_.ratecontrol_enable ? "true" : "false") + " ";
+  pipeline += "EnableTwopassCBR=" + std::string(options_.enable_twopass_cbr ? "true" : "false") + " ";
   pipeline += "bitrate=" + std::to_string(options_.bitrate) + " ";
+  if (options_.peak_bitrate > 0) {
+    pipeline += "peak-bitrate=" + std::to_string(options_.peak_bitrate) + " ";
+  }
+  if (options_.vbv_size > 0) {
+    pipeline += "vbv-size=" + std::to_string(options_.vbv_size) + " ";
+  }
+  if (options_.num_b_frames > 0) {
+    pipeline += "num-B-Frames=" + std::to_string(options_.num_b_frames) + " ";
+  }
+  if (options_.num_ref_frames != 1) {
+    pipeline += "num-Ref-Frames=" + std::to_string(options_.num_ref_frames) + " ";
+  }
   pipeline += "iframeinterval=" + std::to_string(options_.iframeinterval) + " ";
   pipeline += "idrinterval=" + std::to_string(options_.idrinterval) + " ";
   pipeline += "insert-sps-pps=" + std::string(options_.insert_sps_pps ? "true" : "false") + " ";
