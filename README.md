@@ -133,7 +133,7 @@ bash /tmp/bench_orin_cpu.sh
 Notes:
 
 - `proc_cpu(%)` is the publisher process CPU usage as “% of one core” (can exceed 100%).
-- `sys_cpu(%)` is total system CPU usage.
+- `sys_cpu(%)` is total system CPU usage as a % of all CPU cores combined (0–100).
 
 Example result on the current Orin (requested `1920x1536@30` in, `960x768` out, `4Mbps`/cam, `DURATION_S=20`, devices `/dev/video0..4`):
 
@@ -296,7 +296,7 @@ bash /tmp/bench_orin_cpu.sh
 说明：
 
 - `proc_cpu(%)`：发布进程的 CPU 占用（按“单核百分比”计算，因此可能 >100%）。
-- `sys_cpu(%)`：整机总 CPU 占用。
+- `sys_cpu(%)`：整机总 CPU 占用（按“所有 CPU 核总和”的百分比计算，范围 0–100）。
 
 当前 Orin 上的一组示例结果（输入请求 `1920x1536@30`，输出 `960x768`，每路 `4Mbps`，`DURATION_S=20`，设备 `/dev/video0..4`）：
 
