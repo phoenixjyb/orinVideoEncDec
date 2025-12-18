@@ -38,6 +38,8 @@ public:
     this->declare_parameter<std::vector<std::string>>("devices", {"/dev/video0"});
     this->declare_parameter<std::vector<std::string>>("topics", std::vector<std::string>{});
     this->declare_parameter<std::vector<std::string>>("frame_ids", std::vector<std::string>{});
+    this->declare_parameter<std::string>("input_format", "UYVY");
+    this->declare_parameter<std::vector<std::string>>("input_formats", std::vector<std::string>{});
 
     this->declare_parameter<int>("input_width", 1920);
     this->declare_parameter<int>("input_height", 1536);
@@ -74,6 +76,12 @@ public:
       throw std::runtime_error("Parameter 'frame_ids' must match 'devices' length");
     }
 
+    const auto input_format = this->get_parameter("input_format").as_string();
+    auto input_formats = this->get_parameter("input_formats").as_string_array();
+    if (!input_formats.empty() && input_formats.size() != devices.size()) {
+      throw std::runtime_error("Parameter 'input_formats' must match 'devices' length");
+    }
+
     const auto in_w = this->get_parameter("input_width").as_int();
     const auto in_h = this->get_parameter("input_height").as_int();
     const auto out_w = this->get_parameter("output_width").as_int();
@@ -81,6 +89,7 @@ public:
     const auto fps = this->get_parameter("fps").as_int();
 
     GstH265EncoderOptions opts;
+    opts.input_format = input_format;
     opts.input_width = static_cast<int>(in_w);
     opts.input_height = static_cast<int>(in_h);
     opts.output_width = static_cast<int>(out_w);
@@ -103,6 +112,7 @@ public:
       instance.publisher = this->create_publisher<sensor_msgs::msg::CompressedImage>(instance.topic, qos);
 
       opts.device = devices[i];
+      opts.input_format = input_formats.empty() ? input_format : input_formats[i];
       instance.encoder = std::make_unique<GstH265Encoder>(opts, this->get_logger());
       instance.encoder->set_on_packet([this, pub = instance.publisher, frame_id = instance.frame_id](H265Packet&& pkt) {
         sensor_msgs::msg::CompressedImage msg;

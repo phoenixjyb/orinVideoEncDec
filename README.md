@@ -1,4 +1,4 @@
-# orinEnc
+# orinVideoEncDec
 
 [English](#english) | [中文](#中文)
 
@@ -25,9 +25,16 @@ This repo contains a ROS 2 Humble package for Jetson Orin that:
   - `gst-inspect-1.0 nvv4l2h265enc`
   - `gst-inspect-1.0 nvvidconv`
 
-### Deploy to Orin
+### Get repo onto Orin
 
-From your dev machine:
+Option A (recommended): clone on the Orin:
+
+```bash
+cd /home/nvidia/wkp
+git clone https://github.com/phoenixjyb/orinVideoEncDec.git
+```
+
+Option B: copy only the ROS package from your dev machine:
 
 ```bash
 scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/wkp/
@@ -35,13 +42,25 @@ scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/wkp/
 
 ### Build on Orin
 
-On the Orin:
+Option A (repo as a colcon workspace):
+
+```bash
+source /opt/ros/humble/setup.bash
+cd /home/nvidia/wkp/orinVideoEncDec
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+```
+
+Option B (package copied into an existing workspace folder):
 
 ```bash
 source /opt/ros/humble/setup.bash
 cd /home/nvidia/wkp
 colcon build --base-paths cr_h265_publisher --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
 ```
+
+Note: the rest of this README assumes you used Option A and your workspace is `/home/nvidia/wkp/orinVideoEncDec`. If you used Option B, adjust the `source .../install/setup.bash` and `--params-file ...` paths accordingly.
 
 ### Camera init (GMSL)
 
@@ -55,10 +74,17 @@ It may prompt for sudo password (same as SSH password in your setup).
 
 ### Camera sanity check (device mapping + stream test)
 
-On the Orin (no ROS needed):
+On the Orin (no ROS needed). If you cloned this repo:
 
 ```bash
 bash scripts/check_orin_cameras.sh
+```
+
+If you only copied the ROS package, copy this script too:
+
+```bash
+scp scripts/check_orin_cameras.sh cr@192.168.100.150:/tmp/check_orin_cameras.sh
+bash /tmp/check_orin_cameras.sh
 ```
 
 Optional env overrides:
@@ -69,18 +95,24 @@ NUM_BUFFERS=5 MEASURE_BUFFERS=30 TIMEOUT_S=60 FPS=30 \
 bash scripts/check_orin_cameras.sh
 ```
 
+Interpreting results:
+
+- If `content_check` reports `FLAT`, that `/dev/videoX` is likely producing a solid-color or frozen stream.
+- On the current Orin setup we tested, `/dev/video2`, `/dev/video3`, `/dev/video4` produce non-flat images; `/dev/video0/1/5/6/7` were solid green.
+
 ### Run: publish H.265 over ROS2
 
 Single camera example:
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/install/setup.bash
+source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
-  -p devices:=[/dev/video0] \
-  -p topics:=[/cr/camera/h265/front_right] \
-  -p frame_ids:=[front_right] \
+  -p devices:=[/dev/video2] \
+  -p topics:=[/cr/camera/h265/cam2] \
+  -p frame_ids:=[cam2] \
+  -p input_format:=UYVY \
   -p output_width:=960 -p output_height:=768 \
   -p bitrate:=4000000
 ```
@@ -89,7 +121,7 @@ Use the provided params file:
 
 ```bash
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
-  --params-file /home/nvidia/wkp/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
+  --params-file /home/nvidia/wkp/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
 ```
 
 ### Quick end-to-end validation (record + decode)
@@ -100,18 +132,18 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/install/setup.bash
+source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_dump_node --ros-args \
-  -p topic:=/cr/camera/h265/front_right \
-  -p output:=/tmp/front_right.h265 \
+  -p topic:=/cr/camera/h265/cam2 \
+  -p output:=/tmp/cam2.h265 \
   -p max_messages:=300
 ```
 
 3) Decode the file (headless):
 
 ```bash
-gst-launch-1.0 -q filesrc location=/tmp/front_right.h265 ! h265parse ! nvv4l2decoder ! fakesink sync=false
+gst-launch-1.0 -q filesrc location=/tmp/cam2.h265 ! h265parse ! nvv4l2decoder ! fakesink sync=false
 ```
 
 ### CPU benchmark (scaling with camera count)
@@ -126,7 +158,7 @@ Run on the Orin:
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/install/setup.bash
+source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
 bash /tmp/bench_orin_cpu.sh
 ```
 
@@ -157,10 +189,18 @@ cams   proc_cpu(%)  sys_cpu(%)
 
 If you see a “big jump” when adding a specific camera index, it usually means that camera is actually running at a much higher FPS/throughput than the others (e.g. on this setup `/dev/video0` is ~1–2 fps while `/dev/video2` is near realtime).
 
+### H.265 CPU vs hardware acceleration
+
+- `nvv4l2h265enc` uses Jetson NVENC (hardware H.265 encoder).
+- `nvvidconv` uses Jetson VIC (hardware color/scale convert into NVMM).
+- CPU is still used for: GStreamer scheduling + pulling encoded buffers + copying bytes into ROS messages.
+- Verify on Orin: run `sudo tegrastats --interval 1000` and watch `NVENC` / `VIC` activity.
+
 ### Notes / gotchas
 
 - `cr_h265_publisher_node` opens `/dev/video*` directly.
   - Don’t run it at the same time as `cr_camera_driver` if they use the same `/dev/video*` devices.
+- If you have mixed camera models / pixel formats, set `input_format` (global) or `input_formats` (per-device array).
 - Each ROS message is one encoder output buffer (H.265 access unit, bytestream/Annex-B).
 
 ---
@@ -188,9 +228,16 @@ If you see a “big jump” when adding a specific camera index, it usually mean
   - `gst-inspect-1.0 nvv4l2h265enc`
   - `gst-inspect-1.0 nvvidconv`
 
-### 部署到 Orin
+### 将仓库放到 Orin 上
 
-在开发机上执行：
+方式 A（推荐）：直接在 Orin 上 clone：
+
+```bash
+cd /home/nvidia/wkp
+git clone https://github.com/phoenixjyb/orinVideoEncDec.git
+```
+
+方式 B：从开发机只拷贝 ROS 包：
 
 ```bash
 scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/wkp/
@@ -198,13 +245,25 @@ scp -r src/cr_h265_publisher cr@192.168.100.150:/home/nvidia/wkp/
 
 ### Orin 端编译
 
-在 Orin 上执行：
+方式 A（把本仓库当成 colcon workspace）：
+
+```bash
+source /opt/ros/humble/setup.bash
+cd /home/nvidia/wkp/orinVideoEncDec
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+```
+
+方式 B（只拷贝了 ROS 包到现有 workspace 目录）：
 
 ```bash
 source /opt/ros/humble/setup.bash
 cd /home/nvidia/wkp
 colcon build --base-paths cr_h265_publisher --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
 ```
+
+说明：本 README 后续命令默认你使用了方式 A（workspace 在 `/home/nvidia/wkp/orinVideoEncDec`）。如果你使用了方式 B，请相应修改 `source .../install/setup.bash` 和 `--params-file ...` 的路径。
 
 ### 相机初始化（GMSL）
 
@@ -218,10 +277,17 @@ bash /home/nvidia/wkp/cr_camera_driver/scripts/start_cameras.sh --config-only --
 
 ### 相机连通性自检（设备映射 + 码流测试）
 
-在 Orin 上运行（不依赖 ROS）：
+在 Orin 上运行（不依赖 ROS）。如果你已经 clone 了本仓库：
 
 ```bash
 bash scripts/check_orin_cameras.sh
+```
+
+如果你只拷贝了 ROS 包，也可以单独把脚本拷过去：
+
+```bash
+scp scripts/check_orin_cameras.sh cr@192.168.100.150:/tmp/check_orin_cameras.sh
+bash /tmp/check_orin_cameras.sh
 ```
 
 可选环境变量：
@@ -232,18 +298,24 @@ NUM_BUFFERS=5 MEASURE_BUFFERS=30 TIMEOUT_S=60 FPS=30 \
 bash scripts/check_orin_cameras.sh
 ```
 
+结果解读：
+
+- 如果 `content_check` 输出 `FLAT`，通常意味着该 `/dev/videoX` 只有纯色或冻结画面。
+- 在我们当前测试的 Orin 上，`/dev/video2`、`/dev/video3`、`/dev/video4` 有正常画面；`/dev/video0/1/5/6/7` 为纯绿画面。
+
 ### 运行：发布 H.265 ROS2 Topic
 
 单路相机示例：
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/install/setup.bash
+source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
-  -p devices:=[/dev/video0] \
-  -p topics:=[/cr/camera/h265/front_right] \
-  -p frame_ids:=[front_right] \
+  -p devices:=[/dev/video2] \
+  -p topics:=[/cr/camera/h265/cam2] \
+  -p frame_ids:=[cam2] \
+  -p input_format:=UYVY \
   -p output_width:=960 -p output_height:=768 \
   -p bitrate:=4000000
 ```
@@ -252,7 +324,7 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
 
 ```bash
 ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
-  --params-file /home/nvidia/wkp/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
+  --params-file /home/nvidia/wkp/orinVideoEncDec/install/cr_h265_publisher/share/cr_h265_publisher/config/params.yaml
 ```
 
 ### 端到端验证（录制 + 解码）
@@ -263,18 +335,18 @@ ros2 run cr_h265_publisher cr_h265_publisher_node --ros-args \
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/install/setup.bash
+source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
 
 ros2 run cr_h265_publisher cr_h265_dump_node --ros-args \
-  -p topic:=/cr/camera/h265/front_right \
-  -p output:=/tmp/front_right.h265 \
+  -p topic:=/cr/camera/h265/cam2 \
+  -p output:=/tmp/cam2.h265 \
   -p max_messages:=300
 ```
 
 3）使用硬件解码验证（无显示）：
 
 ```bash
-gst-launch-1.0 -q filesrc location=/tmp/front_right.h265 ! h265parse ! nvv4l2decoder ! fakesink sync=false
+gst-launch-1.0 -q filesrc location=/tmp/cam2.h265 ! h265parse ! nvv4l2decoder ! fakesink sync=false
 ```
 
 ### CPU 压力测试（相机数量扩展）
@@ -289,7 +361,7 @@ scp scripts/bench_orin_cpu.sh cr@192.168.100.150:/tmp/bench_orin_cpu.sh
 
 ```bash
 source /opt/ros/humble/setup.bash
-source /home/nvidia/wkp/install/setup.bash
+source /home/nvidia/wkp/orinVideoEncDec/install/setup.bash
 bash /tmp/bench_orin_cpu.sh
 ```
 
@@ -320,8 +392,16 @@ cams   proc_cpu(%)  sys_cpu(%)
 
 如果你发现“加某一路之后 CPU 突然跳升”，通常意味着该相机实际帧率/吞吐量明显更高（例如当前环境里 `/dev/video0` 只有 ~1–2 fps，而 `/dev/video2` 接近实时）。
 
+### H.265 编码是否用到 CPU？
+
+- `nvv4l2h265enc`：使用 Jetson NVENC（硬件 H.265 编码器）。
+- `nvvidconv`：使用 Jetson VIC（硬件颜色空间/缩放转换并输出 NVMM）。
+- CPU 仍会参与：GStreamer 调度 + appsink 拉取编码数据 + 将字节拷贝进 ROS 消息。
+- 验证方式：在 Orin 上运行 `sudo tegrastats --interval 1000`，观察 `NVENC` / `VIC` 的使用情况。
+
 ### 注意事项
 
 - `cr_h265_publisher_node` 会直接打开 `/dev/video*`。
   - 如果 `cr_camera_driver` 也在使用同一设备，请不要同时运行（会抢占设备）。
+- 如果你有不同型号/不同像素格式的相机，请设置 `input_format`（全局）或 `input_formats`（按设备逐一配置）。
 - 每条 ROS 消息对应一次编码器输出（H.265 Access Unit，Annex-B/bytestream）。

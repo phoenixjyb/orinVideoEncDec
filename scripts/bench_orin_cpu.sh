@@ -6,6 +6,7 @@ DURATION_S="${DURATION_S:-20}"
 
 INPUT_WIDTH="${INPUT_WIDTH:-1920}"
 INPUT_HEIGHT="${INPUT_HEIGHT:-1536}"
+INPUT_FORMAT="${INPUT_FORMAT:-UYVY}"
 OUTPUT_WIDTH="${OUTPUT_WIDTH:-960}"
 OUTPUT_HEIGHT="${OUTPUT_HEIGHT:-768}"
 FPS="${FPS:-30}"
@@ -26,6 +27,7 @@ Env overrides:
   MAX_CAMS=5
   DURATION_S=20
   INPUT_WIDTH=1920 INPUT_HEIGHT=1536
+  INPUT_FORMAT=UYVY
   OUTPUT_WIDTH=960 OUTPUT_HEIGHT=768
   FPS=30
   BITRATE=4000000
@@ -103,7 +105,7 @@ fi
 
 echo "node_bin=${NODE_BIN}"
 echo "duration_s=${DURATION_S}"
-echo "input=${INPUT_WIDTH}x${INPUT_HEIGHT}@${FPS}"
+echo "input=${INPUT_WIDTH}x${INPUT_HEIGHT}@${FPS} format=${INPUT_FORMAT}"
 echo "output=${OUTPUT_WIDTH}x${OUTPUT_HEIGHT} bitrate=${BITRATE}"
 echo ""
 
@@ -134,6 +136,7 @@ for (( n = 1; n <= MAX_CAMS; n++ )); do
     -p "devices:=${devices_arg}" \
     -p "topics:=${topics_arg}" \
     -p "frame_ids:=${frame_ids_arg}" \
+    -p "input_format:=${INPUT_FORMAT}" \
     -p "input_width:=${INPUT_WIDTH}" \
     -p "input_height:=${INPUT_HEIGHT}" \
     -p "output_width:=${OUTPUT_WIDTH}" \

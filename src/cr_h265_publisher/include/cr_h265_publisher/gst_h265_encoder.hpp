@@ -23,6 +23,9 @@ struct H265Packet {
 struct GstH265EncoderOptions {
   std::string device;
 
+  // Must be a GStreamer raw video format string (e.g. "UYVY", "NV16", "YUY2").
+  std::string input_format = "UYVY";
+
   int input_width = 1920;
   int input_height = 1536;
   int output_width = 1920;
@@ -74,4 +77,3 @@ private:
 };
 
 }  // namespace cr_h265_publisher
-

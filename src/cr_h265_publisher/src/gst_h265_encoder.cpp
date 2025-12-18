@@ -3,6 +3,7 @@
 #include <gst/app/gstappsink.h>
 #include <rclcpp/logging.hpp>
 
+#include <cctype>
 #include <cstring>
 
 namespace cr_h265_publisher {
@@ -22,6 +23,18 @@ bool has_element_factory(const char* name) {
     return false;
   }
   gst_object_unref(factory);
+  return true;
+}
+
+bool is_safe_caps_token(const std::string& token) {
+  if (token.empty()) {
+    return false;
+  }
+  for (unsigned char ch : token) {
+    if (!(std::isalnum(ch) || ch == '_' || ch == '-')) {
+      return false;
+    }
+  }
   return true;
 }
 
@@ -92,16 +105,17 @@ bool GstH265Encoder::start(std::string* error) {
 
   bus_ = gst_element_get_bus(pipeline_);
 
+  running_ = true;
   GstStateChangeReturn ret = gst_element_set_state(pipeline_, GST_STATE_PLAYING);
   if (ret == GST_STATE_CHANGE_FAILURE) {
     if (error) {
       *error = "Failed to set pipeline to PLAYING";
     }
+    running_ = false;
     stop();
     return false;
   }
 
-  running_ = true;
   bus_thread_ = std::thread(&GstH265Encoder::bus_loop, this);
 
   RCLCPP_INFO(logger_, "GStreamer encoder started: %s", options_.device.c_str());
@@ -212,6 +226,9 @@ void GstH265Encoder::bus_loop() {
           g_free(debug);
         }
         running_ = false;
+        if (pipeline_) {
+          gst_element_set_state(pipeline_, GST_STATE_NULL);
+        }
         break;
       }
       case GST_MESSAGE_WARNING: {
@@ -231,6 +248,9 @@ void GstH265Encoder::bus_loop() {
       case GST_MESSAGE_EOS:
         RCLCPP_WARN(logger_, "GStreamer EOS received");
         running_ = false;
+        if (pipeline_) {
+          gst_element_set_state(pipeline_, GST_STATE_NULL);
+        }
         break;
       default:
         break;
@@ -244,6 +264,13 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
   if (options_.device.empty()) {
     if (error) {
       *error = "Device is empty";
+    }
+    return {};
+  }
+
+  if (!is_safe_caps_token(options_.input_format)) {
+    if (error) {
+      *error = "Invalid input_format: " + options_.input_format;
     }
     return {};
   }
@@ -272,7 +299,8 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
 
   std::string pipeline;
   pipeline += "v4l2src device=" + options_.device + " do-timestamp=true ! ";
-  pipeline += "video/x-raw,format=UYVY,width=" + std::to_string(options_.input_width) +
+  pipeline += "video/x-raw,format=" + options_.input_format +
+              ",width=" + std::to_string(options_.input_width) +
               ",height=" + std::to_string(options_.input_height) +
               ",framerate=" + std::to_string(options_.fps) + "/1 ! ";
   pipeline += "nvvidconv ! ";
@@ -294,4 +322,3 @@ std::string GstH265Encoder::build_pipeline(std::string* error) const {
 }
 
 }  // namespace cr_h265_publisher
-

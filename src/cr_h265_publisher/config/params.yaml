@@ -1,14 +1,18 @@
 cr_h265_publisher:
   ros__parameters:
     devices:
-      - "/dev/video0"
-      - "/dev/video1"
+      - "/dev/video2"
+      - "/dev/video3"
+      - "/dev/video4"
     topics:
-      - "/cr/camera/h265/front_right"
-      - "/cr/camera/h265/front_left"
+      - "/cr/camera/h265/cam2"
+      - "/cr/camera/h265/cam3"
+      - "/cr/camera/h265/cam4"
     frame_ids:
-      - "front_right"
-      - "front_left"
+      - "cam2"
+      - "cam3"
+      - "cam4"
+    input_format: "UYVY"
     input_width: 1920
     input_height: 1536
     output_width: 960
@@ -22,4 +26,3 @@ cr_h265_publisher:
     maxperf_enable: true
     preset_level: 1
     profile: 0
-
